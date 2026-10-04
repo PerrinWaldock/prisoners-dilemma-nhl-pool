@@ -1,13 +1,13 @@
 import requests
 from tqdm import tqdm
+import diskcache
+import pandas as pd
 import json
 import time
-import diskcache
 from datetime import datetime
 from typing import NamedTuple, Any
 from collections import Counter
 from functools import cache as ramcache
-import pandas as pd
 import argparse
 
 TRANSLATION_TABLE = dict( [ (ord(x), ord(y)) for x,y in zip( u"‘’´“”–-",  u"'''\"\"--") ] ) 
