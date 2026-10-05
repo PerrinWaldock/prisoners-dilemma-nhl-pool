@@ -216,6 +216,7 @@ def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, ve
         for row in sheet.itertuples(index=False):
             adjusted_points.append(row.Points / player_counter[row.Id])
         sheet['Adjusted Points'] = adjusted_points
+        sheet.sort_values(by="Adjusted Points", ascending=False, inplace=True)
         sheet.loc['Total'] = sheet.sum(numeric_only=True)
         score = calculate_score(sheet)
         sheet.pop('Id')
@@ -225,7 +226,6 @@ def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, ve
         standings = standings.sort_values(by="Points", ascending=False)
         standings.to_excel(writer, sheet_name="Standings", index=False)
         for team, sheet in new_xl.items():
-            sheet.sort_values(by="Adjusted Points", ascending=False)
             sheet.to_excel(writer, sheet_name=team, index=False)
             if verbose:
                 print("\n")
