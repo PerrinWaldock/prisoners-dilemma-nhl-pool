@@ -12,7 +12,7 @@ import argparse
 
 TRANSLATION_TABLE = dict( [ (ord(x), ord(y)) for x,y in zip( u"‘’´“”–-",  u"'''\"\"--") ] ) 
 
-SHORT_EXPIRE_S = 60*60
+SHORT_EXPIRE_S = 5*60
 LONG_EXPIRE_S = 30*24*60*60
 
 BASE_API = "https://api-web.nhle.com/"
@@ -26,14 +26,20 @@ GOALIE_SHUTOUT_MULTIPLIER = 10
 Player = NamedTuple("Player", [("id", int), ("first_name", str), ("last_name", str), ("number", int), ("position", str), ("team", str), ("points", int)])
 
 cache = diskcache.Cache("nhl_cache")
-# cache.clear()
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", help="Input sheet. It should have the following columns: Name, Number, Position, Team", default=PICKS_SHEET)
     parser.add_argument("-o", "--output", help="Output sheet to publish standings to.", default=OUTPUT_SHEET)
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument("-c", "--clear", action="store_true", help="Clear the cache")
     args = parser.parse_args()
-    update_output(args.input, args.output)
+    
+    if args.clear:
+        cache.clear()
+    
+    update_output(args.input, args.output, verbose=args.verbose)
+    
 
 def pretty_print_json(data):
     print(json.dumps(data, indent=4, sort_keys=True))
@@ -77,6 +83,7 @@ def get_players_from_team(team_name: str) -> list[dict]:
                         "id": player_id,
                         "first_name": first_name,
                         "last_name": last_name,
+                        "team": team_name,
                         "position": position.upper()[0]})
         return players
     else:
@@ -111,6 +118,13 @@ def find_player_id(**kwargs) -> int:
     elif filtered_df.empty:
         print(f"No player found with the given criteria: {kwargs}")
         return 0
+
+def find_player_info(id) -> dict:
+    df = get_all_players()
+    if id == 0:
+        return None
+    row = df[df['id'] == id]
+    return row.to_dict('records')[0]
 
 @cache.memoize(expire=SHORT_EXPIRE_S)
 def get_player_stats(player_id: int) -> Any:
@@ -187,7 +201,7 @@ def get_points_and_id_from_player(id=None, **kwargs) -> tuple[int, int]:
         points = row['points'].values[0]
     return points, id
 
-def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET):
+def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, verbose=False):
     xl = pd.read_excel(picks_file, sheet_name=None)
     new_xl = {}
     player_counter = Counter()
@@ -210,11 +224,15 @@ def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET):
         standings.to_excel(writer, sheet_name="Standings", index=False)
         for team, sheet in new_xl.items():
             sheet.to_excel(writer, sheet_name=team, index=False)
-        print(standings.to_string())
+            if verbose:
+                print("\n")
+                print(team)
+                print(sheet.to_string(index=False))
+        if verbose:
+            print(standings.to_string(index=False))
 
 def update_sheet_points(df: pd.DataFrame) -> pd.DataFrame:
-    pointses = []
-    ids = []
+    output = {key: [] for key in ["Name", "Team", "Position", "Points", "Id"]}
     for row in df.itertuples(index=False):
         first_name = row.Name.split()[0].translate( TRANSLATION_TABLE )
         last_name = row.Name.split()[1].translate( TRANSLATION_TABLE )
@@ -222,11 +240,14 @@ def update_sheet_points(df: pd.DataFrame) -> pd.DataFrame:
         number = row.Number if "Number" in row else None
         team = row if "Team" in row else None
         points, id = get_points_and_id_from_player(first_name=first_name, last_name=last_name, position=position, number=number, team=team)
-        pointses.append(points)
-        ids.append(id)
-    df['Points'] = pointses
-    df['Id'] = ids
-    return df
+        info = find_player_info(id)
+        team = info["team"] if team is None and info is not None and 'team' in info else team
+        output["Name"].append(f"{first_name} {last_name}")
+        output["Team"].append(team)
+        output["Position"].append(position)
+        output["Points"].append(points)
+        output["Id"].append(id)
+    return pd.DataFrame(output)
 
 if __name__ == "__main__":
     main()
