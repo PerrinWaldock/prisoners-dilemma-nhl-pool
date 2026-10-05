@@ -22,6 +22,7 @@ OUTPUT_SHEET = "Scores.xlsx"
 
 GOALIE_POINT_MULTIPLIER = 20
 GOALIE_SHUTOUT_MULTIPLIER = 10
+SCORE_TOP_BY_POSITION = {"F": 12, "D": 6, "G": 2}
 
 Player = NamedTuple("Player", [("id", int), ("first_name", str), ("last_name", str), ("number", int), ("position", str), ("team", str), ("points", int)])
 
@@ -216,13 +217,15 @@ def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, ve
             adjusted_points.append(row.Points / player_counter[row.Id])
         sheet['Adjusted Points'] = adjusted_points
         sheet.loc['Total'] = sheet.sum(numeric_only=True)
+        score = calculate_score(sheet)
         sheet.pop('Id')
-        standings.append({"Team": team, "Points": sheet['Adjusted Points']['Total']}) 
+        standings.append({"Team": team, "Points": score}) 
     with pd.ExcelWriter(output_file) as writer:
         standings = pd.DataFrame(standings)
         standings = standings.sort_values(by="Points", ascending=False)
         standings.to_excel(writer, sheet_name="Standings", index=False)
         for team, sheet in new_xl.items():
+            sheet.sort_values(by="Adjusted Points", ascending=False)
             sheet.to_excel(writer, sheet_name=team, index=False)
             if verbose:
                 print("\n")
@@ -248,6 +251,12 @@ def update_sheet_points(df: pd.DataFrame) -> pd.DataFrame:
         output["Points"].append(points)
         output["Id"].append(id)
     return pd.DataFrame(output)
+
+def calculate_score(df: pd.DataFrame) -> float:
+    total = 0
+    for position, count in SCORE_TOP_BY_POSITION.items():
+        total += sum(sorted(df[df['Position'] == position]['Adjusted Points'].values, reverse=True)[:count])
+    return total
 
 if __name__ == "__main__":
     main()
