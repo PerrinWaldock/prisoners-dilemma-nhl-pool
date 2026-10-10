@@ -202,7 +202,7 @@ def get_points_and_id_from_player(id=None, **kwargs) -> tuple[int, int]:
         points = row['points'].values[0]
     return points, id
 
-def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, verbose=False):
+def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, verbose=False) -> pd.DataFrame:
     xl = pd.read_excel(picks_file, sheet_name=None)
     new_xl = {}
     player_counter = Counter()
@@ -233,6 +233,7 @@ def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, ve
                 print(sheet.to_string(index=False))
         if verbose:
             print(standings.to_string(index=False))
+    return standings
 
 def update_sheet_points(df: pd.DataFrame) -> pd.DataFrame:
     output = {key: [] for key in ["Name", "Team", "Position", "Points", "Id"]}

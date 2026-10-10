@@ -1,0 +1,11 @@
+{
+	"address": "me@example.com",
+	"password": "12345678",
+	"smtp": "smtp.example.com",
+	"port": 465,
+	"recipients": [
+		"him@example.com",
+		"her@example.com",
+		"them@example.com"
+	]
+}

@@ -1,4 +1,7 @@
 nhl_cache/*
 *.xlsx
 !PicksTemplate.xlsx
+*.json
+!*.json.template
 .vscode/*
+__pycache__/***
