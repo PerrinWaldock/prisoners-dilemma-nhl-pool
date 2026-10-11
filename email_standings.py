@@ -6,14 +6,17 @@ import calculate_standings
 import json
 from datetime import datetime
 import pandas as pd
+from pathlib import Path
+
+DEFAULT_EMAIL_SETTINGS = Path(__file__).parent / "email_settings.json"
 
 EmailSettings = NamedTuple("EmailSettings", [("address", str), ("password", str), ("recipients", list[str]), ("smtp", str), ("port", int)])
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", help="Input sheet. It should have the following columns: Name, Number, Position, Team", default=calculate_standings.PICKS_SHEET)
-    parser.add_argument("-o", "--output", help="Output sheet to publish standings to.", default=calculate_standings.OUTPUT_SHEET)
-    parser.add_argument("-s", "--settings", help="Email settings", default="email_settings.json")
+    parser.add_argument("-i", "--input", help="Input sheet. It should have the following columns: Name, Number, Position, Team", default=calculate_standings.DEFAULT_PICKS_SHEET)
+    parser.add_argument("-o", "--output", help="Output sheet to publish standings to.", default=calculate_standings.DEFAULT_OUTPUT_SHEET)
+    parser.add_argument("-s", "--settings", help="Email settings", default=DEFAULT_EMAIL_SETTINGS)
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
     
@@ -27,7 +30,7 @@ def load_settings(email_settings_file: str) -> EmailSettings:
         data = json.loads(contents)
         return EmailSettings(**data)
     
-def send(settings: EmailSettings, attachment: str, standings: pd.DataFrame | None = None):
+def send(settings: EmailSettings, attachment: Path, standings: pd.DataFrame | None = None):
     content = f"""
 Standings as of {datetime.now().strftime('%Y-%m-%d %H:%M')}:
 
@@ -40,7 +43,7 @@ Standings as of {datetime.now().strftime('%Y-%m-%d %H:%M')}:
     msg['To'] = settings.recipients
     msg.set_content(content)
     with open(attachment, 'rb') as f:
-        msg.add_attachment(f.read(), maintype='text', subtype='plain', filename=attachment)
+        msg.add_attachment(f.read(), maintype='text', subtype='plain', filename=attachment.name)
 
     with smtplib.SMTP_SSL(settings.smtp, settings.port) as server:
         server.login(settings.address, settings.password)

@@ -9,6 +9,7 @@ from typing import NamedTuple, Any
 from collections import Counter
 from functools import cache as ramcache
 import argparse
+from pathlib import Path
 
 TRANSLATION_TABLE = dict( [ (ord(x), ord(y)) for x,y in zip( u"‘’´“”–-",  u"'''\"\"--") ] ) 
 
@@ -17,8 +18,8 @@ LONG_EXPIRE_S = 30*24*60*60
 
 BASE_API = "https://api-web.nhle.com/"
 REQUEST_DELAY_SECONDS = 1
-PICKS_SHEET = "Picks.xlsx"
-OUTPUT_SHEET = "Scores.xlsx"
+DEFAULT_PICKS_SHEET = Path(__file__).parent / "Picks.xlsx"
+DEFAULT_OUTPUT_SHEET = Path(__file__).parent / "Scores.xlsx"
 
 GOALIE_POINT_MULTIPLIER = 20
 GOALIE_SHUTOUT_MULTIPLIER = 10
@@ -26,12 +27,12 @@ SCORE_TOP_BY_POSITION = {"F": 12, "D": 6, "G": 2}
 
 Player = NamedTuple("Player", [("id", int), ("first_name", str), ("last_name", str), ("number", int), ("position", str), ("team", str), ("points", int)])
 
-cache = diskcache.Cache("nhl_cache")
+cache = diskcache.Cache(Path(__file__).parent / "nhl_cache")
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", help="Input sheet. It should have the following columns: Name, Number, Position, Team", default=PICKS_SHEET)
-    parser.add_argument("-o", "--output", help="Output sheet to publish standings to.", default=OUTPUT_SHEET)
+    parser.add_argument("-i", "--input", help="Input sheet. It should have the following columns: Name, Number, Position, Team", default=DEFAULT_PICKS_SHEET)
+    parser.add_argument("-o", "--output", help="Output sheet to publish standings to.", default=DEFAULT_OUTPUT_SHEET)
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("-c", "--clear", action="store_true", help="Clear the cache")
     args = parser.parse_args()
@@ -182,7 +183,8 @@ def get_goalie_points():
 @cache.memoize(SHORT_EXPIRE_S)
 def get_goalie_skater_points(id) -> int:
     r = get_player_stats(id)
-    currentSeason = r['seasonTotals'][-1]
+    nhlSeasons = [season for season in r['seasonTotals'] if season['leagueAbbrev'] == 'NHL']
+    currentSeason = nhlSeasons[-1]
     return (currentSeason['assists'] + currentSeason['goals'])*GOALIE_POINT_MULTIPLIER
 
 @ramcache
@@ -202,7 +204,7 @@ def get_points_and_id_from_player(id=None, **kwargs) -> tuple[int, int]:
         points = row['points'].values[0]
     return points, id
 
-def update_output(picks_file: str=PICKS_SHEET, output_file: str=OUTPUT_SHEET, verbose=False) -> pd.DataFrame:
+def update_output(picks_file: str=DEFAULT_PICKS_SHEET, output_file: str=DEFAULT_OUTPUT_SHEET, verbose=False) -> pd.DataFrame:
     xl = pd.read_excel(picks_file, sheet_name=None)
     new_xl = {}
     player_counter = Counter()
